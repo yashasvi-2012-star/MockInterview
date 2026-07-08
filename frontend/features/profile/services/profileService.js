@@ -1,14 +1,15 @@
+import api from '../../../services/api.js';
+import { ENDPOINTS } from '../../../shared/constants/endpoints.js';
+
 export const profileService = {
   async getProfile() {
-    return {
-      name: 'Aarav Mehta',
-      email: 'aarav@example.com',
-      role: 'Frontend Engineer',
-      location: 'Bengaluru, India',
-      stats: { interviews: 18, averageScore: 82, resumesReviewed: 4 },
-    };
+    return api.get(ENDPOINTS.ME);
   },
   async updateProfile(profile) {
-    return profile;
+    return api.patch(ENDPOINTS.ME, {
+      name: profile.name,
+      role: profile.role || null,
+      location: profile.location || null,
+    });
   },
 };

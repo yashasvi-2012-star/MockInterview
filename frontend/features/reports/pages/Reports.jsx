@@ -32,82 +32,10 @@ import {
   TrendingUp,
   Trophy,
 } from "lucide-react";
-
-const kpis = [
-  {
-    label: "Average Score",
-    value: "84%",
-    change: "+8.4%",
-    detail: "Across 18 completed interviews",
-    icon: Trophy,
-  },
-  {
-    label: "Pass Rate",
-    value: "76%",
-    change: "+12.1%",
-    detail: "Role-fit threshold above 72%",
-    icon: CheckCircle2,
-  },
-  {
-    label: "Readiness Score",
-    value: "88%",
-    change: "+6.7%",
-    detail: "Senior frontend track",
-    icon: Gauge,
-  },
-  {
-    label: "Completion Rate",
-    value: "94%",
-    change: "+4.3%",
-    detail: "Sessions completed without drop-off",
-    icon: Activity,
-  },
-];
-
-const performanceTrend = [
-  { month: "Jan", score: 66, communication: 70, technical: 62 },
-  { month: "Feb", score: 70, communication: 73, technical: 67 },
-  { month: "Mar", score: 74, communication: 78, technical: 71 },
-  { month: "Apr", score: 79, communication: 83, technical: 76 },
-  { month: "May", score: 82, communication: 87, technical: 80 },
-  { month: "Jun", score: 86, communication: 91, technical: 84 },
-];
-
-const passRateTrend = [
-  { week: "W1", passRate: 58, attempts: 5 },
-  { week: "W2", passRate: 64, attempts: 7 },
-  { week: "W3", passRate: 69, attempts: 8 },
-  { week: "W4", passRate: 73, attempts: 10 },
-  { week: "W5", passRate: 76, attempts: 12 },
-  { week: "W6", passRate: 81, attempts: 14 },
-];
-
-const readinessTrend = [
-  { day: "Mon", readiness: 71 },
-  { day: "Tue", readiness: 74 },
-  { day: "Wed", readiness: 79 },
-  { day: "Thu", readiness: 82 },
-  { day: "Fri", readiness: 85 },
-  { day: "Sat", readiness: 87 },
-  { day: "Sun", readiness: 88 },
-];
-
-const scoreDistribution = [
-  { range: "50-59", sessions: 1, color: "#F97316" },
-  { range: "60-69", sessions: 3, color: "#FACC15" },
-  { range: "70-79", sessions: 5, color: "#38BDF8" },
-  { range: "80-89", sessions: 7, color: "#818CF8" },
-  { range: "90-100", sessions: 2, color: "#22D3EE" },
-];
-
-const skillGapData = [
-  { skill: "System Design", current: 82, target: 92, gap: 10 },
-  { skill: "Technical Depth", current: 84, target: 91, gap: 7 },
-  { skill: "Conciseness", current: 76, target: 88, gap: 12 },
-  { skill: "Communication", current: 91, target: 94, gap: 3 },
-  { skill: "Confidence", current: 79, target: 90, gap: 11 },
-  { skill: "Examples", current: 81, target: 89, gap: 8 },
-];
+import ErrorMessage from "../../../shared/components/common/ErrorMessage.jsx";
+import Loader from "../../../shared/components/common/Loader.jsx";
+import { useApiQuery } from "../../../shared/hooks/useApi.js";
+import { reportService } from "../services/reportService.js";
 
 const chartTheme = {
   grid: "rgba(255,255,255,0.1)",
@@ -132,6 +60,28 @@ const item = {
   hidden: { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0 },
 };
+
+function buildScoreDistribution(sessions) {
+  const bands = [
+    { range: "0-59", sessions: 0, color: "#F97316" },
+    { range: "60-69", sessions: 0, color: "#FACC15" },
+    { range: "70-79", sessions: 0, color: "#38BDF8" },
+    { range: "80-89", sessions: 0, color: "#818CF8" },
+    { range: "90-100", sessions: 0, color: "#22D3EE" },
+  ];
+
+  sessions.forEach((session) => {
+    const score = Number(session.score);
+    if (!Number.isFinite(score)) return;
+    if (score < 60) bands[0].sessions += 1;
+    else if (score < 70) bands[1].sessions += 1;
+    else if (score < 80) bands[2].sessions += 1;
+    else if (score < 90) bands[3].sessions += 1;
+    else bands[4].sessions += 1;
+  });
+
+  return bands;
+}
 
 function KpiCard({ metric }) {
   const Icon = metric.icon;
@@ -177,6 +127,67 @@ function ChartCard({ icon: Icon, title, subtitle, children, className = "" }) {
 }
 
 export default function Reports() {
+  const { data, error, isError, isLoading } = useApiQuery(["reports"], reportService.getReports);
+
+  if (isLoading) {
+    return <Loader label="Loading reports" />;
+  }
+
+  if (isError) {
+    return <ErrorMessage message={error.message} />;
+  }
+
+  const analytics = data?.analytics || {};
+  const totals = data?.totals || {};
+  const readiness = data?.readiness_prediction || {};
+  const recentSessions = data?.statistics?.recent_sessions || [];
+  const performanceTrend = recentSessions
+    .slice()
+    .reverse()
+    .map((session, index) => ({
+      label: session.created_at ? new Date(session.created_at).toLocaleDateString() : `Session ${index + 1}`,
+      score: session.score || 0,
+    }));
+  const passRateTrend = [{ label: "Current", passRate: analytics.pass_rate || 0, attempts: totals.completed || 0 }];
+  const readinessTrend = [{ label: "Current", readiness: readiness.readiness_score || 0 }];
+  const scoreDistribution = buildScoreDistribution(recentSessions);
+  const skillGapData = (data?.statistics?.top_skills || []).map((skill) => ({
+    skill: skill.skill,
+    current: Math.min(skill.count * 10, 100),
+    target: 100,
+    gap: Math.max(100 - Math.min(skill.count * 10, 100), 0),
+  }));
+  const kpis = [
+    {
+      label: "Average Score",
+      value: `${analytics.average_score || 0}%`,
+      change: "Backend",
+      detail: `Across ${totals.completed || 0} completed interviews`,
+      icon: Trophy,
+    },
+    {
+      label: "Pass Rate",
+      value: `${analytics.pass_rate || 0}%`,
+      change: "Backend",
+      detail: "Calculated from scored sessions",
+      icon: CheckCircle2,
+    },
+    {
+      label: "Readiness Score",
+      value: `${readiness.readiness_score || 0}%`,
+      change: readiness.model_source || "Prediction",
+      detail: readiness.recommendation || "No recommendation yet",
+      icon: Gauge,
+    },
+    {
+      label: "Completion Rate",
+      value: `${analytics.completion_rate || 0}%`,
+      change: "Backend",
+      detail: "Sessions completed without drop-off",
+      icon: Activity,
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-[#070A14] text-white">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -219,12 +230,10 @@ export default function Reports() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={performanceTrend}>
                   <CartesianGrid stroke={chartTheme.grid} strokeDasharray="3 3" />
-                  <XAxis dataKey="month" stroke={chartTheme.axis} />
+                  <XAxis dataKey="label" stroke={chartTheme.axis} />
                   <YAxis domain={[50, 100]} stroke={chartTheme.axis} />
                   <Tooltip contentStyle={chartTheme.tooltip} />
                   <Line type="monotone" dataKey="score" stroke="#22D3EE" strokeWidth={3} dot={{ r: 4 }} />
-                  <Line type="monotone" dataKey="communication" stroke="#A78BFA" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="technical" stroke="#60A5FA" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -239,7 +248,7 @@ export default function Reports() {
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={passRateTrend}>
                   <CartesianGrid stroke={chartTheme.grid} strokeDasharray="3 3" />
-                  <XAxis dataKey="week" stroke={chartTheme.axis} />
+                  <XAxis dataKey="label" stroke={chartTheme.axis} />
                   <YAxis yAxisId="left" domain={[40, 100]} stroke={chartTheme.axis} />
                   <YAxis yAxisId="right" orientation="right" stroke={chartTheme.axis} />
                   <Tooltip contentStyle={chartTheme.tooltip} />
@@ -265,7 +274,7 @@ export default function Reports() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke={chartTheme.grid} strokeDasharray="3 3" />
-                  <XAxis dataKey="day" stroke={chartTheme.axis} />
+                  <XAxis dataKey="label" stroke={chartTheme.axis} />
                   <YAxis domain={[60, 100]} stroke={chartTheme.axis} />
                   <Tooltip contentStyle={chartTheme.tooltip} />
                   <Area
@@ -377,9 +386,7 @@ export default function Reports() {
                 AI Insight
               </div>
               <p className="max-w-4xl text-sm leading-7 text-slate-200 sm:text-base">
-                Your scores are trending upward fastest in communication, while confidence and
-                conciseness remain the biggest readiness gaps. Prioritize short follow-up drills
-                and system design framing to move the pass rate above 82%.
+                {readiness.recommendation || "Complete and evaluate interviews to unlock backend readiness insights."}
               </p>
             </div>
           </div>

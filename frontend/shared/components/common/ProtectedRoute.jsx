@@ -4,9 +4,10 @@ import { ROUTES } from '../../constants/routes.js';
 
 export default function ProtectedRoute({ children }) {
   const user = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.token);
   const location = useLocation();
 
-  if (!user) {
+  if (!user || !token) {
     return <Navigate replace to={ROUTES.LOGIN} state={{ from: location }} />;
   }
 

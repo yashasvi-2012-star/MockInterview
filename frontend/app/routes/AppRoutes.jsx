@@ -27,9 +27,9 @@ export default function AppRoutes() {
         <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPassword />} />
       </Route>
 
-      <Route element={<MainLayout />}>  
-        <Route path={ROUTES.HOME} element={<LandingPage />} />      
-        </Route>
+      <Route element={<MainLayout />}>
+        <Route path={ROUTES.HOME} element={<LandingPage />} />
+      </Route>
 
       <Route
         element={

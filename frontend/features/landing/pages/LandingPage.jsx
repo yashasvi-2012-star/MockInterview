@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart3,
@@ -16,12 +17,7 @@ import {
   TrendingUp,
   WandSparkles,
 } from 'lucide-react';
-
-const metrics = [
-  { label: 'Readiness score', value: '87%', trend: '+14%', color: 'from-cyan-400 to-blue-500' },
-  { label: 'Pass probability', value: '78%', trend: '+9%', color: 'from-violet-400 to-fuchsia-500' },
-  { label: 'Avg. response clarity', value: '91%', trend: '+18%', color: 'from-emerald-300 to-cyan-400' },
-];
+import { ROUTES } from '../../../shared/constants/routes.js';
 
 const features = [
   {
@@ -47,13 +43,6 @@ const workflow = [
   { step: '03', title: 'Improve with AI', copy: 'Review scored feedback, trend lines, and next-best recommendations.' },
 ];
 
-const readinessSignals = [
-  { label: 'Technical depth', value: 82 },
-  { label: 'Communication', value: 91 },
-  { label: 'Confidence', value: 76 },
-  { label: 'Structure', value: 88 },
-];
-
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
   visible: { opacity: 1, y: 0 },
@@ -61,7 +50,7 @@ const fadeUp = {
 
 function SectionHeader({ eyebrow, title, copy }) {
   return (
-    <div
+    <motion.div
       className="mx-auto max-w-3xl text-center"
       initial="hidden"
       whileInView="visible"
@@ -71,13 +60,13 @@ function SectionHeader({ eyebrow, title, copy }) {
       <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-300">{eyebrow}</p>
       <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">{title}</h2>
       <p className="mt-5 text-base leading-7 text-slate-300 sm:text-lg">{copy}</p>
-    </div>
+    </motion.div>
   );
 }
 
 function DashboardPreview() {
   return (
-    <div
+    <motion.div
       className="relative mx-auto w-full max-w-6xl"
       initial={{ opacity: 0, y: 34, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -92,50 +81,28 @@ function DashboardPreview() {
             <span className="h-3 w-3 rounded-full bg-emerald-400" />
           </div>
           <div className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300 sm:block">
-            Senior Frontend Engineer mock interview
+            Backend-connected interview workspace
           </div>
         </div>
 
         <div className="grid gap-5 p-5 lg:grid-cols-[1.25fr_0.75fr] lg:p-7">
           <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-3">
-              {metrics.map((metric) => (
-                <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{metric.label}</p>
-                  <div className="mt-4 flex items-end justify-between">
-                    <span className="text-3xl font-semibold text-white">{metric.value}</span>
-                    <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
-                      {metric.trend}
-                    </span>
-                  </div>
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-                    <div className={`h-full w-4/5 rounded-full bg-gradient-to-r ${metric.color}`} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
             <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">AI performance trend</p>
-                  <h3 className="mt-1 text-xl font-semibold text-white">Interview readiness is accelerating</h3>
+                  <p className="text-sm text-slate-400">Backend analytics</p>
+                  <h3 className="mt-1 text-xl font-semibold text-white">Reports populate from saved interview sessions</h3>
                 </div>
                 <span className="inline-flex w-fit items-center gap-2 rounded-full bg-cyan-400/10 px-3 py-1.5 text-sm font-medium text-cyan-200">
                   <TrendingUp size={16} />
-                  6 week improvement
+                  Live data
                 </span>
               </div>
-              <div className="mt-7 flex h-48 items-end gap-2 sm:gap-3">
-                {[36, 48, 43, 58, 62, 72, 68, 79, 84, 88, 86, 93].map((height, index) => (
-                  <div
-                    key={height + index}
-                    className="flex-1 rounded-t-xl bg-gradient-to-t from-violet-600 via-blue-500 to-cyan-300"
-                    initial={{ height: 0 }}
-                    whileInView={{ height: `${height}%` }}
-                    viewport={{ once: true }}
-                    transition={{ delay: index * 0.035, duration: 0.55, ease: 'easeOut' }}
-                  />
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                {['Interview history', 'Readiness prediction', 'Session reports'].map((item) => (
+                  <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-sm text-slate-300">
+                    {item}
+                  </div>
                 ))}
               </div>
             </div>
@@ -145,8 +112,8 @@ function DashboardPreview() {
             <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.07] p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-cyan-100/80">Live session</p>
-                  <h3 className="mt-1 text-lg font-semibold text-white">System design round</h3>
+                  <p className="text-sm text-cyan-100/80">Interview session</p>
+                  <h3 className="mt-1 text-lg font-semibold text-white">Generated from backend questions</h3>
                 </div>
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-cyan-200">
                   <Mic2 size={22} />
@@ -154,12 +121,12 @@ function DashboardPreview() {
               </div>
               <div className="mt-5 rounded-2xl bg-slate-950/55 p-4">
                 <p className="text-sm leading-6 text-slate-300">
-                  "Walk me through how you would design a real-time interview feedback pipeline."
+                  Questions and answers are loaded from authenticated backend requests.
                 </p>
                 <div className="mt-4 grid grid-cols-12 gap-1.5">
                   {[35, 72, 54, 84, 46, 91, 63, 78, 42, 70, 58, 88].map((height, index) => (
                     <motion.span
-                      key={height + index}
+                      key={`waveform-bar-${index}`}
                       className="rounded-full bg-cyan-300"
                       animate={{ height: [`${height * 0.45}px`, `${height * 0.75}px`, `${height * 0.45}px`] }}
                       transition={{ repeat: Infinity, duration: 1.4, delay: index * 0.08 }}
@@ -175,7 +142,7 @@ function DashboardPreview() {
                 <Sparkles className="text-violet-300" size={18} />
               </div>
               <div className="mt-4 space-y-3">
-                {['Add concrete tradeoffs in architecture answers', 'Reduce filler words by 22%', 'Practice caching and queue backpressure'].map((item) => (
+                {['Session feedback', 'Readiness recommendation', 'Skill breakdown'].map((item) => (
                   <div key={item} className="flex gap-3 rounded-xl bg-white/[0.05] p-3 text-sm text-slate-300">
                     <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-300" size={16} />
                     <span>{item}</span>
@@ -186,7 +153,7 @@ function DashboardPreview() {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -198,53 +165,53 @@ export default function LandingPage() {
 
       <section className="relative flex min-h-[calc(100vh-4rem)] items-center px-5 py-16 sm:px-8 lg:px-10">
         <div className="mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-[0.92fr_1.08fr]">
-          <div
+          <motion.div
             initial="hidden"
             animate="visible"
             transition={{ staggerChildren: 0.12 }}
             className="max-w-3xl"
           >
-            <div
+            <motion.div
               variants={fadeUp}
               className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-sm font-medium text-cyan-100 shadow-lg shadow-cyan-950/20 backdrop-blur"
             >
               <WandSparkles size={16} />
               AI interview readiness platform
-            </div>
-            <h1
+            </motion.div>
+            <motion.h1
               variants={fadeUp}
               className="mt-7 text-5xl font-semibold tracking-tight text-white sm:text-6xl lg:text-7xl"
             >
               Practice sharper. Predict outcomes. Walk in ready.
-            </h1>
-            <p variants={fadeUp} className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              InterviewIQ AI turns mock interviews into measurable readiness with live voice practice, behavioral and
+            </motion.h1>
+            <motion.p variants={fadeUp} className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
+              Prepify turns mock interviews into measurable readiness with live voice practice, behavioral and
               technical scoring, trend analytics, and AI recommendations tailored to your target role.
-            </p>
-            <div variants={fadeUp} className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <a
-                href="/register"
+            </motion.p>
+            <motion.div variants={fadeUp} className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link
+                to={ROUTES.REGISTER}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 px-6 py-4 text-sm font-semibold text-white shadow-xl shadow-blue-950/40 transition hover:scale-[1.02]"
               >
                 Start practicing
                 <ArrowRight size={18} />
-              </a>
-              <a
-                href="/login"
+              </Link>
+              <Link
+                to={ROUTES.LOGIN}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/8 px-6 py-4 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/12"
               >
                 <Play size={17} />
-                View demo
-              </a>
-            </div>
-            <div variants={fadeUp} className="mt-10 grid max-w-xl grid-cols-3 gap-3 text-sm text-slate-300">
+                Sign in
+              </Link>
+            </motion.div>
+            <motion.div variants={fadeUp} className="mt-10 grid max-w-xl grid-cols-3 gap-3 text-sm text-slate-300">
               {['Voice AI', 'Predictive scoring', 'Skill analytics'].map((item) => (
                 <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-center">
                   {item}
                 </div>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           <DashboardPreview />
         </div>
@@ -255,11 +222,11 @@ export default function LandingPage() {
           <SectionHeader
             eyebrow="Feature Showcase"
             title="Everything serious candidates need between practice and offer."
-            copy="InterviewIQ AI blends structured interview coaching with analytics dashboards that make improvement visible after every session."
+            copy="Prepify blends structured interview coaching with analytics dashboards that make improvement visible after every session."
           />
           <div className="mt-14 grid gap-5 md:grid-cols-3">
             {features.map((feature, index) => (
-              <div
+              <motion.div
                 key={feature.title}
                 className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 shadow-xl shadow-slate-950/20 backdrop-blur"
                 initial="hidden"
@@ -273,7 +240,7 @@ export default function LandingPage() {
                 </div>
                 <h3 className="mt-6 text-xl font-semibold text-white">{feature.title}</h3>
                 <p className="mt-3 leading-7 text-slate-300">{feature.copy}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -288,7 +255,7 @@ export default function LandingPage() {
           />
           <div className="space-y-4">
             {workflow.map((item, index) => (
-              <div
+              <motion.div
                 key={item.step}
                 className="group rounded-3xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur transition hover:border-cyan-300/30 hover:bg-white/[0.09]"
                 initial="hidden"
@@ -307,7 +274,7 @@ export default function LandingPage() {
                   </div>
                   <ChevronRight className="ml-auto mt-3 hidden text-slate-500 transition group-hover:text-cyan-200 sm:block" />
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -329,13 +296,13 @@ export default function LandingPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl bg-slate-950/50 p-5">
                 <Clock3 className="text-cyan-200" size={22} />
-                <p className="mt-4 text-3xl font-semibold text-white">42 min</p>
-                <p className="mt-1 text-sm text-slate-400">Recommended practice this week</p>
+                <p className="mt-4 text-xl font-semibold text-white">Practice plan</p>
+                <p className="mt-1 text-sm text-slate-400">Generated after backend evaluation</p>
               </div>
               <div className="rounded-2xl bg-slate-950/50 p-5">
                 <Target className="text-violet-200" size={22} />
-                <p className="mt-4 text-3xl font-semibold text-white">+12%</p>
-                <p className="mt-1 text-sm text-slate-400">Projected pass lift after focus plan</p>
+                <p className="mt-4 text-xl font-semibold text-white">Pass signal</p>
+                <p className="mt-1 text-sm text-slate-400">Calculated from saved sessions</p>
               </div>
             </div>
           </div>
@@ -344,32 +311,20 @@ export default function LandingPage() {
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm text-slate-400">Current prediction</p>
-                <h3 className="mt-2 text-2xl font-semibold text-white">Ready for final-round interviews</h3>
+                <h3 className="mt-2 text-2xl font-semibold text-white">Prediction appears after interviews are evaluated</h3>
               </div>
               <div className="relative h-32 w-32 shrink-0 rounded-full bg-[conic-gradient(from_180deg,#22d3ee_0deg,#6366f1_248deg,rgba(255,255,255,0.12)_248deg)] p-3">
                 <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-slate-950">
-                  <span className="text-3xl font-semibold text-white">87</span>
-                  <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Score</span>
+                  <span className="text-sm font-semibold text-white">Live</span>
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-400">Data</span>
                 </div>
               </div>
             </div>
 
             <div className="mt-7 space-y-5">
-              {readinessSignals.map((signal) => (
-                <div key={signal.label}>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-300">{signal.label}</span>
-                    <span className="font-medium text-white">{signal.value}%</span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-blue-500 to-violet-500"
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${signal.value}%` }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                    />
-                  </div>
+              {['Average score', 'Completion rate', 'Pass probability', 'Readiness score'].map((signal) => (
+                <div key={signal} className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-sm text-slate-300">
+                  {signal}
                 </div>
               ))}
             </div>
@@ -378,8 +333,7 @@ export default function LandingPage() {
               <div className="flex gap-3">
                 <MessageSquareText className="mt-1 shrink-0 text-emerald-200" size={20} />
                 <p className="text-sm leading-6 text-emerald-50">
-                  Focus next on system-design tradeoffs and concise openings. Your behavioral answers are already
-                  tracking above the senior-candidate benchmark.
+                  Backend recommendations are generated from completed interviews and evaluated answers.
                 </p>
               </div>
             </div>
@@ -396,13 +350,13 @@ export default function LandingPage() {
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-300">
             Practice with AI feedback that feels structured, specific, and built for the roles you actually want.
           </p>
-          <a
-            href="/register"
+          <Link
+            to={ROUTES.REGISTER}
             className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100"
           >
             Build my readiness plan
             <ArrowRight size={18} />
-          </a>
+          </Link>
         </div>
       </section>
     </div>

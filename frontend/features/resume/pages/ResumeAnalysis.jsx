@@ -16,6 +16,7 @@ import {
   Wrench,
   XCircle,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Bar,
@@ -41,64 +42,6 @@ import Card from '../../../shared/components/ui/Card.jsx';
 import { ROUTES } from '../../../shared/constants/routes.js';
 import { useApiQuery } from '../../../shared/hooks/useApi.js';
 import { resumeService } from '../services/resumeService.js';
-
-const analysisDetails = {
-  atsCompatibilityScore: 81,
-  keywordMatchScore: 68,
-  skillsMatchScore: 74,
-  strengths: [
-    'Clear frontend role alignment with React project experience.',
-    'Strong measurable impact in performance and UI delivery.',
-    'Concise summary section that matches the target role.',
-  ],
-  weaknesses: [
-    'Testing experience needs stronger evidence and outcomes.',
-    'TypeScript appears only once and reads like a tool mention.',
-    'Leadership and cross-functional collaboration examples are thin.',
-  ],
-  missingKeywords: ['TypeScript', 'Unit Testing', 'Accessibility', 'CI/CD', 'Design Systems'],
-  recommendedSkills: ['TypeScript', 'React Testing Library', 'Web Accessibility', 'Performance Profiling'],
-  improvements: [
-    'Add metrics to each major project, especially latency, conversion, or quality gains.',
-    'Move strongest frontend achievements into the top half of the resume.',
-    'Rewrite bullet points with action, scope, measurable result, and tooling.',
-  ],
-  atsBreakdown: [
-    { name: 'Formatting', score: 92 },
-    { name: 'Structure', score: 84 },
-    { name: 'Keywords', score: 68 },
-    { name: 'Readability', score: 88 },
-    { name: 'Role Fit', score: 76 },
-  ],
-  skillsCoverage: [
-    { skill: 'React', coverage: 92 },
-    { skill: 'JavaScript', coverage: 86 },
-    { skill: 'Testing', coverage: 54 },
-    { skill: 'TypeScript', coverage: 48 },
-    { skill: 'Accessibility', coverage: 42 },
-    { skill: 'Performance', coverage: 78 },
-  ],
-  keywordDistribution: [
-    { name: 'Found', value: 12, color: '#10b981' },
-    { name: 'Partial', value: 5, color: '#f59e0b' },
-    { name: 'Missing', value: 7, color: '#ef4444' },
-  ],
-  optimizationTips: [
-    'Mirror the target job description language without keyword stuffing.',
-    'Keep section headers standard so ATS parsers can classify content cleanly.',
-    'Use consistent date, role, and company formatting across experience entries.',
-  ],
-  recommendedChanges: [
-    'Add a TypeScript-heavy bullet under your strongest React project.',
-    'Include one testing bullet with coverage, regression reduction, or release quality.',
-    'Add accessibility and design system keywords where they match real experience.',
-  ],
-  interviewSuggestions: [
-    'Prepare one project story about performance improvement tradeoffs.',
-    'Practice explaining how you test React components and user flows.',
-    'Be ready to discuss how you translated product requirements into UI architecture.',
-  ],
-};
 
 const chartTooltipStyle = {
   background: '#0f172a',
@@ -174,37 +117,92 @@ function SuggestionPanel({ icon: Icon, title, items }) {
 
 export default function ResumeAnalysis() {
   const { data, isLoading } = useApiQuery(['resume-analysis'], resumeService.analyzeResume);
+  const [notice, setNotice] = useState('');
 
   if (isLoading) {
     return <Loader label="Analyzing resume" />;
   }
 
-  const foundKeywords = data.keywords.filter((keyword) => keyword.found).length;
-  const totalKeywords = data.keywords.length;
+  if (!data) {
+    return (
+      <Card className="fade-in p-8 text-center">
+        <Badge tone="blue">AI Resume Analysis</Badge>
+        <h1 className="mt-3 text-3xl font-bold text-slate-950">No resume analysis yet</h1>
+        <p className="mx-auto mt-2 max-w-2xl text-slate-500">
+          Upload a resume to generate ATS readiness, keyword coverage, and improvement suggestions from the backend analyzer.
+        </p>
+        <Link
+          to={ROUTES.RESUME_UPLOAD}
+          className="mt-6 inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+        >
+          <Upload size={18} />
+          Upload Resume
+        </Link>
+      </Card>
+    );
+  }
+
+  const raw = data.raw || {};
+  const atsBreakdown = Object.entries(raw.ats_score?.breakdown || {}).map(([name, score]) => ({ name, score }));
+  const technicalSkills = raw.skill_analysis?.technical_skills || [];
+  const softSkills = raw.skill_analysis?.soft_skills || [];
+  const repeatedTerms = raw.skill_analysis?.top_repeated_terms || [];
+  const detectedSections = raw.text_summary?.detected_sections || [];
+  const improvements = raw.improvement_suggestions || [];
+  const foundKeywords = data.keywords?.filter((keyword) => keyword.found).length || 0;
+  const totalKeywords = data.keywords?.length || 0;
+  const skillsCoverage = [...technicalSkills, ...softSkills].map((skill) => ({ skill, coverage: 100 }));
+  const keywordDistribution = [
+    { name: 'Found', value: foundKeywords, color: '#10b981' },
+    { name: 'Not found', value: Math.max(totalKeywords - foundKeywords, 0), color: '#ef4444' },
+  ].filter((entry) => entry.value > 0);
   const scores = [
-    { icon: Gauge, label: 'Resume Score', value: data.score, helper: 'Good', tone: 'bg-brand-600' },
+    { icon: Gauge, label: 'Resume Score', value: data.score, helper: raw.ats_score?.grade || 'ATS', tone: 'bg-brand-600' },
     {
       icon: FileText,
       label: 'ATS Compatibility Score',
-      value: analysisDetails.atsCompatibilityScore,
-      helper: 'ATS ready',
+      value: data.score,
+      helper: `${detectedSections.length} sections`,
       tone: 'bg-emerald-500',
     },
     {
       icon: Target,
       label: 'Keyword Match Score',
-      value: analysisDetails.keywordMatchScore,
+      value: totalKeywords ? Math.round((foundKeywords / totalKeywords) * 100) : 0,
       helper: `${foundKeywords}/${totalKeywords} found`,
       tone: 'bg-amber-500',
     },
     {
       icon: BrainCircuit,
       label: 'Skills Match Score',
-      value: analysisDetails.skillsMatchScore,
-      helper: 'Improving',
+      value: Math.min((technicalSkills.length + softSkills.length) * 10, 100),
+      helper: `${technicalSkills.length + softSkills.length} skills`,
       tone: 'bg-blue-500',
     },
   ];
+
+  const downloadAnalysis = () => {
+    const report = [
+      'Prepify Resume Analysis',
+      `Resume Score: ${data.score}%`,
+      `ATS Grade: ${raw.ats_score?.grade || 'N/A'}`,
+      `Matched Keywords: ${(raw.ats_score?.matched_keywords || []).join(', ')}`,
+      '',
+      'Feedback:',
+      data.feedback,
+      '',
+      'Recommended Improvements:',
+      ...improvements.map((improvement) => `- ${improvement}`),
+    ].join('\n');
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'prepify-resume-analysis.txt';
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice('Resume analysis report downloaded.');
+  };
 
   return (
     <div className="fade-in space-y-6">
@@ -224,12 +222,14 @@ export default function ResumeAnalysis() {
             <Upload size={18} />
             Upload New Resume
           </Link>
-          <Button variant="secondary">
+          <Button variant="secondary" onClick={downloadAnalysis}>
             <Download size={18} />
             Download Analysis Report
           </Button>
         </div>
       </div>
+
+      {notice ? <p className="rounded-md bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {scores.map((score) => (
@@ -243,17 +243,17 @@ export default function ResumeAnalysis() {
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <InsightList icon={CheckCircle2} title="Strengths" items={analysisDetails.strengths} tone="text-emerald-600" />
-        <InsightList icon={XCircle} title="Weaknesses" items={analysisDetails.weaknesses} tone="text-rose-600" />
+        <InsightList icon={CheckCircle2} title="Detected Sections" items={detectedSections} tone="text-emerald-600" />
+        <InsightList icon={XCircle} title="Repeated Terms" items={repeatedTerms.map((term) => `${term.term}: ${term.count}`)} tone="text-rose-600" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <SectionHeader icon={AlertTriangle} title="Missing Keywords" />
           <div className="flex flex-wrap gap-2">
-            {analysisDetails.missingKeywords.map((keyword) => (
+            {(data.keywords || []).filter((keyword) => !keyword.found).map((keyword) => (
               <Badge key={keyword} tone="amber">
-                {keyword}
+                {keyword.keyword}
               </Badge>
             ))}
           </div>
@@ -262,7 +262,7 @@ export default function ResumeAnalysis() {
         <Card>
           <SectionHeader icon={ListChecks} title="Recommended Skills" />
           <div className="space-y-3">
-            {analysisDetails.recommendedSkills.map((skill) => (
+            {[...technicalSkills, ...softSkills].map((skill) => (
               <div key={skill} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
                 {skill}
               </div>
@@ -273,7 +273,7 @@ export default function ResumeAnalysis() {
         <Card>
           <SectionHeader icon={Wrench} title="Resume Improvements" />
           <div className="space-y-3">
-            {analysisDetails.improvements.map((improvement) => (
+            {improvements.map((improvement) => (
               <p key={improvement} className="text-sm leading-6 text-slate-600">
                 {improvement}
               </p>
@@ -287,13 +287,13 @@ export default function ResumeAnalysis() {
           <SectionHeader icon={BarChart3} title="ATS Breakdown" />
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analysisDetails.atsBreakdown}>
+              <BarChart data={atsBreakdown}>
                 <CartesianGrid stroke="#e2e8f0" vertical={false} />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} stroke="#64748b" />
                 <YAxis domain={[0, 100]} tickLine={false} axisLine={false} stroke="#64748b" />
                 <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: '#f8fafc' }} />
                 <Bar dataKey="score" radius={[8, 8, 0, 0]}>
-                  {analysisDetails.atsBreakdown.map((entry, index) => (
+                  {atsBreakdown.map((entry, index) => (
                     <Cell key={entry.name} fill={['#2563eb', '#10b981', '#f59e0b', '#14b8a6', '#6366f1'][index]} />
                   ))}
                 </Bar>
@@ -306,7 +306,7 @@ export default function ResumeAnalysis() {
           <SectionHeader icon={TrendingUp} title="Skills Coverage" />
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={analysisDetails.skillsCoverage}>
+              <RadarChart data={skillsCoverage}>
                 <PolarGrid stroke="#e2e8f0" />
                 <PolarAngleAxis dataKey="skill" tick={{ fill: '#475569', fontSize: 12 }} />
                 <Radar dataKey="coverage" stroke="#2563eb" fill="#2563eb" fillOpacity={0.22} strokeWidth={2} />
@@ -319,19 +319,19 @@ export default function ResumeAnalysis() {
 
       <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
         <Card>
-          <SectionHeader icon={Target} title="Keyword Distribution" />
+            <SectionHeader icon={Target} title="Keyword Distribution" />
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={analysisDetails.keywordDistribution}
+                  data={keywordDistribution}
                   dataKey="value"
                   nameKey="name"
                   innerRadius={58}
                   outerRadius={92}
                   paddingAngle={4}
                 >
-                  {analysisDetails.keywordDistribution.map((entry) => (
+                  {keywordDistribution.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
                   ))}
                 </Pie>
@@ -345,9 +345,9 @@ export default function ResumeAnalysis() {
         <Card>
           <SectionHeader icon={Lightbulb} title="AI Suggestions Panel" />
           <div className="grid gap-4 lg:grid-cols-3">
-            <SuggestionPanel icon={Sparkles} title="Resume Optimization Tips" items={analysisDetails.optimizationTips} />
-            <SuggestionPanel icon={RefreshCw} title="Recommended Resume Changes" items={analysisDetails.recommendedChanges} />
-            <SuggestionPanel icon={BrainCircuit} title="Interview Preparation Suggestions" items={analysisDetails.interviewSuggestions} />
+            <SuggestionPanel icon={Sparkles} title="Resume Optimization Tips" items={improvements} />
+            <SuggestionPanel icon={RefreshCw} title="Detected Sections" items={detectedSections} />
+            <SuggestionPanel icon={BrainCircuit} title="Detected Skills" items={[...technicalSkills, ...softSkills]} />
           </div>
         </Card>
       </div>

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bot,
   CheckCircle2,
   Clock3,
-  Lightbulb,
   LogOut,
   Mic,
   MicOff,
@@ -16,83 +16,9 @@ import {
   Timer,
   Volume2,
 } from "lucide-react";
-
-const questions = [
-  {
-    id: 1,
-    difficulty: "Medium",
-    question:
-      "Tell me about a time you improved the performance of a React application. What tradeoffs did you consider?",
-    completed: true,
-  },
-  {
-    id: 2,
-    difficulty: "Hard",
-    question:
-      "How would you design a scalable frontend architecture for an AI-powered interview platform used by thousands of candidates daily?",
-    completed: false,
-  },
-  {
-    id: 3,
-    difficulty: "Medium",
-    question:
-      "Explain how you would handle authentication state, protected routes, and token refresh in a production React app.",
-    completed: false,
-  },
-  {
-    id: 4,
-    difficulty: "Hard",
-    question:
-      "Describe your approach to debugging a memory leak caused by event listeners or subscriptions in a complex UI.",
-    completed: false,
-  },
-  {
-    id: 5,
-    difficulty: "Medium",
-    question:
-      "How do you balance accessibility, performance, and visual polish when building reusable components?",
-    completed: false,
-  },
-];
-
-const transcriptSeed = [
-  {
-    id: 1,
-    speaker: "AI",
-    text: "Take a moment to structure your answer. Start with context, then the decision, implementation, and measurable result.",
-    time: "09:41",
-  },
-  {
-    id: 2,
-    speaker: "You",
-    text: "In my previous project, we had a dashboard where the initial load time was close to six seconds because the main bundle included analytics, charts, and admin-only modules.",
-    time: "09:42",
-  },
-  {
-    id: 3,
-    speaker: "You",
-    text: "I introduced route-level code splitting, memoized expensive chart transforms, and moved non-critical requests behind visible interaction states.",
-    time: "09:43",
-  },
-];
-
-const tips = [
-  "Anchor your answer with a specific project and measurable outcome.",
-  "Mention how you validated the improvement using profiling or analytics.",
-  "Include one tradeoff, such as added complexity from lazy loading.",
-];
-
-const followUps = [
-  "How did you measure before and after performance?",
-  "What would you optimize next if you had more time?",
-  "How did you prevent regressions after the change?",
-];
-
-const encouragement = [
-  "Strong structure so far. Keep the answer outcome-focused.",
-  "Great signal when you mention metrics and user impact.",
-  "You are showing senior-level decision making. Stay concise.",
-];
+import { ROUTES } from "../../../shared/constants/routes.js";
+import { interviewService } from "../services/interviewService.js";
+import useInterviewStore from "../store/interviewStore.js";
 
 const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -101,26 +27,34 @@ const formatTime = (seconds) => {
 };
 
 export default function VoiceInterview() {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(1);
+  const navigate = useNavigate();
+  const setup = useInterviewStore((state) => state.setup);
+  const activeInterview = useInterviewStore((state) => state.activeInterview);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(742);
-  const [answerSeconds, setAnswerSeconds] = useState(86);
-  const [transcript, setTranscript] = useState(transcriptSeed);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [answerSeconds, setAnswerSeconds] = useState(0);
+  const [transcript, setTranscript] = useState([]);
+  const [manualAnswer, setManualAnswer] = useState("");
+  const [flowError, setFlowError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const transcriptRef = useRef(null);
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const completedCount = questions.filter((question) => question.completed).length;
-  const remainingCount = questions.length - completedCount;
-  const progress = Math.round((completedCount / questions.length) * 100);
+  const interviewQuestions = useMemo(() => {
+    const sourceQuestions = activeInterview?.questions?.length ? activeInterview.questions : [];
+    return sourceQuestions.map((item, index) => ({
+      id: item.question_id || item.id || `question-${index + 1}`,
+      difficulty: item.difficulty || activeInterview?.difficulty || "Medium",
+      question: item.question || item,
+      completed: index < currentQuestionIndex,
+    }));
+  }, [activeInterview, currentQuestionIndex]);
 
-  const streamedAnswer = useMemo(
-    () => [
-      "The most important tradeoff was balancing faster perceived load time with the complexity introduced by more async boundaries.",
-      "I used React Profiler and Lighthouse to confirm that the largest gains came from reducing render work during dashboard initialization.",
-      "The result was a 38 percent improvement in time to interactive and fewer support complaints from users on slower devices.",
-    ],
-    [],
-  );
+  const currentQuestion = interviewQuestions[currentQuestionIndex] || interviewQuestions[0];
+  const completedCount = interviewQuestions.filter((question) => question.completed).length;
+  const remainingCount = Math.max(interviewQuestions.length - completedCount, 0);
+  const progress = interviewQuestions.length ? Math.round((completedCount / interviewQuestions.length) * 100) : 0;
+  const isLastQuestion = currentQuestionIndex >= interviewQuestions.length - 1;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -134,46 +68,82 @@ export default function VoiceInterview() {
   }, [isRecording]);
 
   useEffect(() => {
-    if (!isRecording) return undefined;
-
-    const streamTimer = window.setInterval(() => {
-      setTranscript((items) => {
-        const nextIndex = items.filter((item) => item.speaker === "You").length - 2;
-        if (nextIndex < 0 || nextIndex >= streamedAnswer.length) return items;
-
-        return [
-          ...items,
-          {
-            id: Date.now(),
-            speaker: "You",
-            text: streamedAnswer[nextIndex],
-            time: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          },
-        ];
-      });
-    }, 4200);
-
-    return () => window.clearInterval(streamTimer);
-  }, [isRecording, streamedAnswer]);
-
-  useEffect(() => {
     transcriptRef.current?.scrollTo({
       top: transcriptRef.current.scrollHeight,
       behavior: "smooth",
     });
   }, [transcript]);
 
-  const handleSubmit = () => {
+  const getAnswerText = () => transcript
+    .filter((item) => item.speaker === "You")
+    .map((item) => item.text)
+    .join(" ") || manualAnswer.trim();
+
+  const submitCurrentAnswer = async (markCompleted = false) => {
     setIsRecording(false);
+    const answerText = getAnswerText();
+
+    if (activeInterview?.id && answerText) {
+      return interviewService.saveAnswers(
+        activeInterview.id,
+        [{ question_id: String(currentQuestion.id), answer: answerText }],
+        markCompleted,
+      );
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    setFlowError("");
+    setIsSubmitting(true);
+    try {
+      await submitCurrentAnswer(isLastQuestion);
+    } catch (submitError) {
+      setFlowError(submitError.message || "Unable to submit this answer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+
     setTranscript((items) => [
       ...items,
+        {
+          id: Date.now(),
+          speaker: "AI",
+          text: "Answer submitted.",
+          time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+    ]);
+  };
+
+  const handleNext = async () => {
+    setIsRecording(false);
+    if (isLastQuestion) {
+      setFlowError("");
+      setIsSubmitting(true);
+      try {
+        await submitCurrentAnswer(true);
+        await interviewService.evaluateInterview(activeInterview.id);
+        navigate(ROUTES.INTERVIEW_RESULT);
+      } catch (finishError) {
+        setFlowError(finishError.message || "Unable to finish and evaluate this interview.");
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    setCurrentQuestionIndex((index) => Math.min(index + 1, interviewQuestions.length - 1));
+    setAnswerSeconds(0);
+    setManualAnswer("");
+    setTranscript([
       {
         id: Date.now(),
         speaker: "AI",
-        text: "Answer submitted. Your response clearly explained the situation, optimization strategy, and business impact.",
+        text: "Next question ready.",
         time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -182,22 +152,41 @@ export default function VoiceInterview() {
     ]);
   };
 
-  const handleNext = () => {
-    setIsRecording(false);
-    setCurrentQuestionIndex((index) => Math.min(index + 1, questions.length - 1));
-    setAnswerSeconds(0);
-    setTranscript([
-      {
-        id: Date.now(),
-        speaker: "AI",
-        text: "Here is your next question. Take a few seconds to organize your answer before recording.",
+  const handleSkip = () => {
+    setTranscript((items) => [
+      ...items,
+        {
+          id: Date.now(),
+          speaker: "AI",
+          text: "Question skipped.",
         time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
       },
     ]);
+    handleNext();
   };
+
+  if (!activeInterview || !interviewQuestions.length) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#070A14] px-4 text-white">
+        <div className="max-w-lg rounded-lg border border-white/10 bg-white/[0.06] p-6 text-center shadow-2xl shadow-black/30">
+          <h1 className="text-2xl font-semibold">No active interview</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-300">
+            Start an interview from setup to load backend-generated questions.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.INTERVIEW_SETUP)}
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-slate-950"
+          >
+            Go to setup
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#070A14] text-white">
@@ -220,7 +209,7 @@ export default function VoiceInterview() {
                 AI Voice Interview
               </div>
               <h1 className="text-2xl font-semibold text-white sm:text-3xl">
-                Senior Frontend Engineer
+                {activeInterview?.role || setup?.role || "Mock Interview"}
               </h1>
             </div>
 
@@ -247,7 +236,11 @@ export default function VoiceInterview() {
                 </div>
               </div>
 
-              <button className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-100 transition hover:bg-red-500/20">
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.INTERVIEW_RESULT)}
+                className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-100 transition hover:bg-red-500/20"
+              >
                 <LogOut className="h-4 w-4" />
                 Exit Interview
               </button>
@@ -266,7 +259,7 @@ export default function VoiceInterview() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="rounded-lg bg-cyan-400/10 px-3 py-1 text-sm font-medium text-cyan-200">
-                    Question {currentQuestion.id} of {questions.length}
+                    Question {currentQuestionIndex + 1} of {interviewQuestions.length}
                   </span>
                   <span className="rounded-lg border border-purple-300/20 bg-purple-400/10 px-3 py-1 text-sm font-medium text-purple-100">
                     {currentQuestion.difficulty}
@@ -382,6 +375,12 @@ export default function VoiceInterview() {
                 </div>
 
                 <div ref={transcriptRef} className="flex-1 space-y-4 overflow-y-auto p-5">
+                  <textarea
+                    value={manualAnswer}
+                    onChange={(event) => setManualAnswer(event.target.value)}
+                    placeholder="Type or paste your answer here."
+                    className="min-h-32 w-full resize-y rounded-lg border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/50"
+                  />
                   {transcript.map((item) => (
                     <motion.div
                       key={item.id}
@@ -417,6 +416,7 @@ export default function VoiceInterview() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
+                  onClick={handleSkip}
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10"
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -424,9 +424,15 @@ export default function VoiceInterview() {
                 </button>
 
                 <div className="flex flex-col gap-3 sm:flex-row">
+                  {flowError ? (
+                    <p className="max-w-sm rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+                      {flowError}
+                    </p>
+                  ) : null}
                   <button
                     type="button"
                     onClick={handleSubmit}
+                    disabled={isSubmitting}
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-300/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
                   >
                     <Send className="h-4 w-4" />
@@ -435,9 +441,10 @@ export default function VoiceInterview() {
                   <button
                     type="button"
                     onClick={handleNext}
+                    disabled={isSubmitting}
                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-400 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-950/40 transition hover:brightness-110"
                   >
-                    Next Question
+                    {isSubmitting && isLastQuestion ? "Evaluating" : isLastQuestion ? "Finish Interview" : "Next Question"}
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -488,60 +495,19 @@ export default function VoiceInterview() {
             >
               <div className="mb-4 flex items-center gap-2">
                 <Bot className="h-5 w-5 text-purple-300" />
-                <h2 className="text-lg font-semibold">AI Assistant</h2>
+                <h2 className="text-lg font-semibold">Session Details</h2>
               </div>
 
-              <div className="space-y-5">
-                <div>
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-cyan-200">
-                    <Lightbulb className="h-4 w-4" />
-                    Interview Tips
-                  </div>
-                  <div className="space-y-2">
-                    {tips.map((tip) => (
-                      <div
-                        key={tip}
-                        className="rounded-lg border border-cyan-300/10 bg-cyan-400/10 p-3 text-sm leading-5 text-slate-200"
-                      >
-                        {tip}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-purple-200">
-                    <Sparkles className="h-4 w-4" />
-                    Follow-up Suggestions
-                  </div>
-                  <div className="space-y-2">
-                    {followUps.map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-lg border border-purple-300/10 bg-purple-400/10 p-3 text-sm leading-5 text-slate-200"
-                      >
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-emerald-200">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Encouragement
-                  </div>
-                  <div className="space-y-2">
-                    {encouragement.map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-lg border border-emerald-300/10 bg-emerald-400/10 p-3 text-sm leading-5 text-slate-200"
-                      >
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div className="space-y-3 text-sm text-slate-300">
+                <p className="rounded-lg border border-white/10 bg-black/20 p-3">
+                  Difficulty: {activeInterview.difficulty}
+                </p>
+                <p className="rounded-lg border border-white/10 bg-black/20 p-3">
+                  Status: {activeInterview.status}
+                </p>
+                <p className="rounded-lg border border-white/10 bg-black/20 p-3">
+                  Questions: {interviewQuestions.length}
+                </p>
               </div>
             </motion.section>
           </aside>

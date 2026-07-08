@@ -11,6 +11,7 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -19,8 +20,16 @@ export default function ForgotPassword() {
       return;
     }
     setError('');
-    const response = await authService.forgotPassword({ email });
-    setMessage(response.message);
+    setMessage('');
+    setIsSubmitting(true);
+    try {
+      const response = await authService.forgotPassword({ email });
+      setMessage(response?.message || 'If an account exists, reset instructions will be sent.');
+    } catch (resetError) {
+      setError(resetError.message || 'Unable to send reset instructions.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -31,9 +40,9 @@ export default function ForgotPassword() {
         <Input label="Email" name="email" type="email" value={email} error={error} onChange={(event) => setEmail(event.target.value)} />
         {message ? <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{message}</p> : null}
       </div>
-      <Button className="mt-6 w-full" type="submit">
+      <Button className="mt-6 w-full" disabled={isSubmitting} type="submit">
         <Send size={18} />
-        Send reset link
+        {isSubmitting ? 'Sending reset link' : 'Send reset link'}
       </Button>
       <Link className="mt-4 block text-center text-sm font-semibold text-brand-700" to={ROUTES.LOGIN}>
         Back to sign in

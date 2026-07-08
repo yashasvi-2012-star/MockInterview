@@ -11,7 +11,6 @@ import {
   Sparkles,
   Target,
   TrendingUp,
-  TriangleAlert,
   Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -30,52 +29,10 @@ import {
   YAxis,
 } from 'recharts';
 import { ROUTES } from '../../../shared/constants/routes.js';
-
-const kpis = [
-  { label: 'Interview Readiness', value: '87%', change: '+12%', icon: BrainCircuit, color: 'from-cyan-300 to-blue-500' },
-  { label: 'Pass Probability', value: '78%', change: '+9%', icon: Target, color: 'from-violet-400 to-fuchsia-500' },
-  { label: 'Average Score', value: '84.6', change: '+6.4', icon: BarChart3, color: 'from-blue-300 to-indigo-500' },
-  { label: 'Completion Rate', value: '92%', change: '+18%', icon: CheckCircle2, color: 'from-emerald-300 to-cyan-400' },
-];
-
-const performanceTrend = [
-  { week: 'W1', communication: 68, technical: 61, confidence: 58 },
-  { week: 'W2', communication: 72, technical: 66, confidence: 63 },
-  { week: 'W3', communication: 75, technical: 69, confidence: 67 },
-  { week: 'W4', communication: 81, technical: 73, confidence: 71 },
-  { week: 'W5', communication: 84, technical: 78, confidence: 74 },
-  { week: 'W6', communication: 89, technical: 83, confidence: 80 },
-];
-
-const passRateTrend = [
-  { month: 'Jan', passRate: 48 },
-  { month: 'Feb', passRate: 56 },
-  { month: 'Mar', passRate: 61 },
-  { month: 'Apr', passRate: 69 },
-  { month: 'May', passRate: 74 },
-  { month: 'Jun', passRate: 81 },
-];
-
-const scoreDistribution = [
-  { range: '50-59', count: 2 },
-  { range: '60-69', count: 5 },
-  { range: '70-79', count: 9 },
-  { range: '80-89', count: 14 },
-  { range: '90-100', count: 7 },
-];
-
-const recentSessions = [
-  { role: 'Senior Frontend Engineer', score: 91, date: 'Jun 10, 2026', status: 'Passed' },
-  { role: 'React System Design', score: 84, date: 'Jun 08, 2026', status: 'Review' },
-  { role: 'Behavioral Leadership', score: 88, date: 'Jun 05, 2026', status: 'Passed' },
-  { role: 'JavaScript Fundamentals', score: 76, date: 'Jun 02, 2026', status: 'Practice' },
-];
-
-const recommendations = {
-  strengths: ['Clear answer structure', 'Strong React architecture vocabulary', 'Improved pacing across follow-ups'],
-  weaknesses: ['Needs deeper tradeoff analysis', 'Occasional filler words under pressure', 'Limited metrics in project examples'],
-  improvements: ['Practice cache invalidation scenarios', 'Add business impact to STAR answers', 'Run two system-design mocks this week'],
-};
+import ErrorMessage from '../../../shared/components/common/ErrorMessage.jsx';
+import Loader from '../../../shared/components/common/Loader.jsx';
+import { useApiQuery } from '../../../shared/hooks/useApi.js';
+import { dashboardService } from '../services/dashboardService.js';
 
 const quickActions = [
   { label: 'Start Interview', to: ROUTES.INTERVIEW_SETUP, icon: CalendarPlus, copy: 'Launch a role-specific AI mock session.' },
@@ -94,6 +51,28 @@ const fadeUp = {
   hidden: { opacity: 0, y: 22 },
   visible: { opacity: 1, y: 0 },
 };
+
+function buildScoreDistribution(sessions) {
+  const bands = [
+    { range: '0-59', count: 0 },
+    { range: '60-69', count: 0 },
+    { range: '70-79', count: 0 },
+    { range: '80-89', count: 0 },
+    { range: '90-100', count: 0 },
+  ];
+
+  sessions.forEach((session) => {
+    const score = Number(session.score);
+    if (!Number.isFinite(score)) return;
+    if (score < 60) bands[0].count += 1;
+    else if (score < 70) bands[1].count += 1;
+    else if (score < 80) bands[2].count += 1;
+    else if (score < 90) bands[3].count += 1;
+    else bands[4].count += 1;
+  });
+
+  return bands;
+}
 
 function GlassCard({ children, className = '', ...props }) {
   return (
@@ -127,6 +106,37 @@ function SectionTitle({ icon: Icon, title, subtitle }) {
 }
 
 export default function Dashboard() {
+  const { data, error, isError, isLoading } = useApiQuery(['dashboard'], dashboardService.getDashboard);
+
+  if (isLoading) {
+    return <Loader label="Loading dashboard" />;
+  }
+
+  if (isError) {
+    return <ErrorMessage message={error.message} />;
+  }
+
+  const analytics = data?.analytics || {};
+  const totals = data?.totals || {};
+  const readiness = data?.readiness_prediction || {};
+  const recentSessions = data?.statistics?.recent_sessions || [];
+  const performanceTrend = recentSessions
+    .slice()
+    .reverse()
+    .map((session, index) => ({
+      label: session.created_at ? new Date(session.created_at).toLocaleDateString() : `Session ${index + 1}`,
+      score: session.score || 0,
+    }));
+  const passRateTrend = [{ label: 'Current', passRate: analytics.pass_rate || 0 }];
+  const scoreDistribution = buildScoreDistribution(recentSessions);
+  const recommendations = readiness.recommendation ? [readiness.recommendation] : [];
+  const kpis = [
+    { label: 'Interview Readiness', value: `${readiness.readiness_score || 0}%`, change: readiness.model_source || 'Live', icon: BrainCircuit, color: 'from-cyan-300 to-blue-500' },
+    { label: 'Pass Probability', value: `${readiness.pass_probability || 0}%`, change: 'Prediction', icon: Target, color: 'from-violet-400 to-fuchsia-500' },
+    { label: 'Average Score', value: analytics.average_score ?? 0, change: `${totals.completed || 0} completed`, icon: BarChart3, color: 'from-blue-300 to-indigo-500' },
+    { label: 'Completion Rate', value: `${analytics.completion_rate || 0}%`, change: `${totals.interviews || 0} total`, icon: CheckCircle2, color: 'from-emerald-300 to-cyan-400' },
+  ];
+
   return (
     <div className="relative -m-4 min-h-[calc(100vh-64px)] overflow-hidden bg-slate-950 text-white md:-m-6">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_4%,rgba(34,211,238,0.2),transparent_30%),radial-gradient(circle_at_82%_12%,rgba(168,85,247,0.22),transparent_28%),radial-gradient(circle_at_48%_52%,rgba(59,130,246,0.12),transparent_36%)]" />
@@ -144,14 +154,13 @@ export default function Dashboard() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-sm font-medium text-cyan-100">
                 <Sparkles size={15} />
-                AI readiness updated 12 minutes ago
+                AI readiness from backend analytics
               </div>
               <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
-                Welcome back, Alex.
+                Welcome back.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-                Your current track is <span className="font-semibold text-cyan-200">Senior Frontend Engineer</span>.
-                InterviewIQ AI predicts you are ready for final-round practice with one focused system-design push.
+                Prepify predicts your current readiness from completed interview sessions and saved evaluations.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <Link
@@ -176,20 +185,24 @@ export default function Dashboard() {
                 <p className="text-sm text-slate-400">Current role track</p>
                 <Zap className="text-cyan-200" size={18} />
               </div>
-              <p className="mt-3 text-2xl font-semibold text-white">Frontend AI Platform</p>
+              <p className="mt-3 text-2xl font-semibold text-white">Readiness Signals</p>
               <div className="mt-5 space-y-4">
-                {['React architecture', 'System design', 'Behavioral leadership'].map((track, index) => (
+                {[
+                  ['Pass probability', readiness.pass_probability || 0],
+                  ['Readiness score', readiness.readiness_score || 0],
+                  ['Completion rate', analytics.completion_rate || 0],
+                ].map(([track, value]) => (
                   <div key={track}>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-300">{track}</span>
-                      <span className="font-medium text-white">{[91, 78, 86][index]}%</span>
+                      <span className="font-medium text-white">{value}%</span>
                     </div>
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
                       <motion.div
                         className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-violet-500"
                         initial={{ width: 0 }}
-                        animate={{ width: `${[91, 78, 86][index]}%` }}
-                        transition={{ delay: 0.25 + index * 0.1, duration: 0.7 }}
+                        animate={{ width: `${value}%` }}
+                        transition={{ duration: 0.7 }}
                       />
                     </div>
                   </div>
@@ -221,7 +234,7 @@ export default function Dashboard() {
             <SectionTitle
               icon={LineChartIcon}
               title="Performance Trend"
-              subtitle="Communication, technical depth, and confidence over the last six practice weeks."
+              subtitle="Scores from recent backend interview sessions."
             />
             <div className="mt-6 h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -237,24 +250,22 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                  <XAxis dataKey="week" stroke="#94a3b8" tickLine={false} axisLine={false} />
+                  <XAxis dataKey="label" stroke="#94a3b8" tickLine={false} axisLine={false} />
                   <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} domain={[40, 100]} />
                   <Tooltip contentStyle={chartTooltipStyle} />
-                  <Area type="monotone" dataKey="communication" stroke="#22d3ee" fill="url(#communication)" strokeWidth={3} />
-                  <Area type="monotone" dataKey="technical" stroke="#8b5cf6" fill="url(#technical)" strokeWidth={3} />
-                  <Line type="monotone" dataKey="confidence" stroke="#34d399" strokeWidth={3} dot={false} />
+                  <Area type="monotone" dataKey="score" stroke="#22d3ee" fill="url(#communication)" strokeWidth={3} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </GlassCard>
 
           <GlassCard className="p-5">
-            <SectionTitle icon={TrendingUp} title="Pass Rate Trend" subtitle="Projected pass likelihood by month." />
+            <SectionTitle icon={TrendingUp} title="Pass Rate" subtitle="Current pass rate from scored sessions." />
             <div className="mt-6 h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={passRateTrend}>
                   <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                  <XAxis dataKey="month" stroke="#94a3b8" tickLine={false} axisLine={false} />
+                  <XAxis dataKey="label" stroke="#94a3b8" tickLine={false} axisLine={false} />
                   <YAxis stroke="#94a3b8" tickLine={false} axisLine={false} domain={[30, 100]} />
                   <Tooltip contentStyle={chartTooltipStyle} />
                   <Line
@@ -273,7 +284,7 @@ export default function Dashboard() {
 
         <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
           <GlassCard className="p-5">
-            <SectionTitle icon={BarChart3} title="Score Distribution" subtitle="Distribution across 37 completed sessions." />
+            <SectionTitle icon={BarChart3} title="Score Distribution" subtitle="Distribution across recent scored sessions." />
             <div className="mt-6 h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={scoreDistribution}>
@@ -307,8 +318,8 @@ export default function Dashboard() {
                     className="grid grid-cols-[1.3fr_0.6fr_0.9fr_0.8fr] gap-3 border-t border-white/10 px-4 py-4 text-sm"
                   >
                     <span className="font-medium text-white">{session.role}</span>
-                    <span className="text-cyan-200">{session.score}</span>
-                    <span className="text-slate-400">{session.date}</span>
+                    <span className="text-cyan-200">{session.score ?? 0}</span>
+                    <span className="text-slate-400">{session.created_at ? new Date(session.created_at).toLocaleDateString() : 'Not set'}</span>
                     <span>
                       <span className="rounded-full bg-white/[0.07] px-2.5 py-1 text-xs text-slate-200">
                         {session.status}
@@ -323,12 +334,10 @@ export default function Dashboard() {
 
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <GlassCard className="p-5">
-            <SectionTitle icon={Sparkles} title="AI Recommendations" subtitle="Generated from your latest five interviews." />
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <SectionTitle icon={Sparkles} title="AI Recommendations" subtitle="Generated by backend readiness prediction." />
+            <div className="mt-6 grid gap-4 md:grid-cols-1">
               {[
-                { title: 'Strengths', icon: CheckCircle2, items: recommendations.strengths, tone: 'text-emerald-300' },
-                { title: 'Weaknesses', icon: TriangleAlert, items: recommendations.weaknesses, tone: 'text-amber-300' },
-                { title: 'Suggested Improvements', icon: Target, items: recommendations.improvements, tone: 'text-cyan-300' },
+                { title: 'Recommendation', icon: Target, items: recommendations, tone: 'text-cyan-300' },
               ].map((group) => (
                 <div key={group.title} className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
                   <div className="flex items-center gap-2">

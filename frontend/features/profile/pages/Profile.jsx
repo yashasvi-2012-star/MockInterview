@@ -1,10 +1,8 @@
 import {
-  Award,
   BarChart3,
   BookOpenCheck,
   BriefcaseBusiness,
   Download,
-  GraduationCap,
   KeyRound,
   Mail,
   MapPin,
@@ -12,47 +10,22 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
-  Trophy,
   User,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Loader from '../../../shared/components/common/Loader.jsx';
+import ErrorMessage from '../../../shared/components/common/ErrorMessage.jsx';
 import Badge from '../../../shared/components/ui/Badge.jsx';
 import Button from '../../../shared/components/ui/Button.jsx';
 import Card from '../../../shared/components/ui/Card.jsx';
+import { ROUTES } from '../../../shared/constants/routes.js';
 import { useApiQuery } from '../../../shared/hooks/useApi.js';
 import ProfileForm from '../components/ProfileForm.jsx';
 import { profileService } from '../services/profileService.js';
-
-const profileInsights = {
-  readinessScore: 86,
-  passProbability: 78,
-  skills: [
-    { name: 'React Architecture', level: 92 },
-    { name: 'JavaScript Fundamentals', level: 88 },
-    { name: 'System Design', level: 74 },
-    { name: 'Behavioral Answers', level: 81 },
-  ],
-  achievements: [
-    'Completed 10 mock interviews',
-    'Top 15% communication score',
-    '7-day practice streak',
-  ],
-  certifications: [
-    { title: 'Frontend Interview Readiness', issuer: 'MockInterview AI', status: 'Active' },
-    { title: 'Resume ATS Optimization', issuer: 'Career Labs', status: 'Completed' },
-  ],
-  interviewHistory: [
-    { role: 'Frontend Engineer', date: 'Jun 10, 2026', score: 86, result: 'Passed' },
-    { role: 'React Developer', date: 'Jun 06, 2026', score: 82, result: 'Review' },
-    { role: 'JavaScript Engineer', date: 'Jun 02, 2026', score: 79, result: 'Practice' },
-  ],
-  learningProgress: [
-    { topic: 'Technical depth', progress: 84 },
-    { topic: 'Answer structure', progress: 90 },
-    { topic: 'Confidence and pacing', progress: 76 },
-  ],
-};
+import { dashboardService } from '../../dashboard/services/dashboardService.js';
+import useAuthStore from '../../auth/store/authStore.js';
 
 function StatCard({ icon: Icon, label, value, helper }) {
   return (
@@ -89,7 +62,11 @@ function ProgressBar({ value, tone = 'bg-brand-600' }) {
 }
 
 export default function Profile() {
-  const { data, isLoading } = useApiQuery(['profile'], profileService.getProfile);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data, error, isError, isLoading } = useApiQuery(['profile'], profileService.getProfile);
+  const { data: dashboard } = useApiQuery(['profile-dashboard'], dashboardService.getDashboard);
+  const setUser = useAuthStore((state) => state.setUser);
   const [notice, setNotice] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
@@ -97,10 +74,31 @@ export default function Profile() {
     return <Loader label="Loading profile" />;
   }
 
+  if (isError) {
+    return <ErrorMessage message={error.message} />;
+  }
+
   const submit = async (profile) => {
-    await profileService.updateProfile(profile);
-    setNotice('Profile updated successfully.');
-    setIsEditing(false);
+    try {
+      const updatedProfile = await profileService.updateProfile(profile);
+      setUser(updatedProfile);
+      queryClient.setQueryData(['profile'], updatedProfile);
+      setNotice('Profile updated successfully.');
+      setIsEditing(false);
+    } catch (submitError) {
+      setNotice(submitError.message || 'Unable to update profile.');
+    }
+  };
+
+  const exportProfileData = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'prepify-profile-data.json';
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice('Profile data exported.');
   };
 
   const initials = data.name
@@ -110,30 +108,35 @@ export default function Profile() {
     .slice(0, 2)
     .toUpperCase();
 
+  const analytics = dashboard?.analytics || {};
+  const totals = dashboard?.totals || {};
+  const readiness = dashboard?.readiness_prediction || {};
+  const recentSessions = dashboard?.statistics?.recent_sessions || [];
+  const skills = dashboard?.statistics?.top_skills || [];
   const stats = [
     {
       icon: BarChart3,
       label: 'Total Interviews',
-      value: data.stats.interviews,
-      helper: '+3 this month',
+      value: totals.interviews || 0,
+      helper: `${totals.completed || 0} completed`,
     },
     {
       icon: Target,
       label: 'Average Score',
-      value: `${data.stats.averageScore}%`,
-      helper: '+6%',
+      value: `${analytics.average_score || 0}%`,
+      helper: 'Backend analytics',
     },
     {
       icon: Sparkles,
       label: 'Readiness Score',
-      value: `${profileInsights.readinessScore}%`,
-      helper: 'Strong',
+      value: `${readiness.readiness_score || 0}%`,
+      helper: readiness.model_source || 'Prediction',
     },
     {
       icon: ShieldCheck,
       label: 'Pass Probability',
-      value: `${profileInsights.passProbability}%`,
-      helper: 'Likely',
+      value: `${readiness.pass_probability || 0}%`,
+      helper: 'Prediction',
     },
   ];
 
@@ -156,11 +159,11 @@ export default function Profile() {
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <BriefcaseBusiness size={16} />
-                    {data.role}
+                    {data.role || 'Not set'}
                   </span>
                   <span className="inline-flex items-center gap-2">
                     <MapPin size={16} />
-                    {data.location}
+                    {data.location || 'Not set'}
                   </span>
                 </div>
               </div>
@@ -171,11 +174,11 @@ export default function Profile() {
                 <Pencil size={18} />
                 Edit Profile
               </Button>
-              <Button variant="secondary">
+              <Button variant="secondary" onClick={() => navigate(ROUTES.FORGOT_PASSWORD)}>
                 <KeyRound size={18} />
                 Change Password
               </Button>
-              <Button variant="secondary">
+              <Button variant="secondary" onClick={exportProfileData}>
                 <Download size={18} />
                 Export Data
               </Button>
@@ -208,11 +211,11 @@ export default function Profile() {
             </div>
             <div>
               <p className="font-medium text-slate-500">Target Role</p>
-              <p className="mt-1 font-semibold text-slate-950">{data.role}</p>
+              <p className="mt-1 font-semibold text-slate-950">{data.role || 'Not set'}</p>
             </div>
             <div>
               <p className="font-medium text-slate-500">Location</p>
-              <p className="mt-1 font-semibold text-slate-950">{data.location}</p>
+              <p className="mt-1 font-semibold text-slate-950">{data.location || 'Not set'}</p>
             </div>
           </div>
         </Card>
@@ -220,46 +223,16 @@ export default function Profile() {
         <Card>
           <SectionHeader icon={BookOpenCheck} title="Skills" />
           <div className="space-y-4">
-            {profileInsights.skills.map((skill) => (
-              <div key={skill.name}>
+            {skills.map((skill) => (
+              <div key={skill.skill}>
                 <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-                  <span className="font-medium text-slate-700">{skill.name}</span>
-                  <span className="font-semibold text-slate-950">{skill.level}%</span>
+                  <span className="font-medium text-slate-700">{skill.skill}</span>
+                  <span className="font-semibold text-slate-950">{skill.count}</span>
                 </div>
-                <ProgressBar value={skill.level} />
+                <ProgressBar value={Math.min(skill.count * 10, 100)} />
               </div>
             ))}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <SectionHeader icon={Trophy} title="Achievements" />
-          <div className="space-y-3">
-            {profileInsights.achievements.map((achievement) => (
-              <div key={achievement} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3">
-                <Award className="text-amber-500" size={19} />
-                <span className="text-sm font-medium text-slate-700">{achievement}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <SectionHeader icon={GraduationCap} title="Certifications" />
-          <div className="space-y-3">
-            {profileInsights.certifications.map((certification) => (
-              <div key={certification.title} className="rounded-lg border border-slate-200 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold text-slate-950">{certification.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{certification.issuer}</p>
-                  </div>
-                  <Badge tone={certification.status === 'Active' ? 'green' : 'blue'}>{certification.status}</Badge>
-                </div>
-              </div>
-            ))}
+            {!skills.length ? <p className="text-sm text-slate-500">No skills found in interview history yet.</p> : null}
           </div>
         </Card>
       </div>
@@ -278,16 +251,21 @@ export default function Profile() {
                 </tr>
               </thead>
               <tbody>
-                {profileInsights.interviewHistory.map((interview) => (
-                  <tr key={`${interview.role}-${interview.date}`} className="border-b border-slate-100 last:border-0">
+                {recentSessions.map((interview) => (
+                  <tr key={interview.interview_id} className="border-b border-slate-100 last:border-0">
                     <td className="py-4 font-medium text-slate-950">{interview.role}</td>
-                    <td className="py-4 text-slate-600">{interview.date}</td>
-                    <td className="py-4 font-semibold text-slate-950">{interview.score}%</td>
+                    <td className="py-4 text-slate-600">{interview.created_at || 'Not set'}</td>
+                    <td className="py-4 font-semibold text-slate-950">{interview.score ?? 0}%</td>
                     <td className="py-4">
-                      <Badge tone={interview.result === 'Passed' ? 'green' : 'amber'}>{interview.result}</Badge>
+                      <Badge tone={interview.status === 'completed' ? 'green' : 'amber'}>{interview.status}</Badge>
                     </td>
                   </tr>
                 ))}
+                {!recentSessions.length ? (
+                  <tr>
+                    <td className="py-4 text-center text-slate-500" colSpan="4">No interview history yet.</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -296,15 +274,16 @@ export default function Profile() {
         <Card>
           <SectionHeader icon={Sparkles} title="Learning Progress" />
           <div className="space-y-5">
-            {profileInsights.learningProgress.map((item) => (
-              <div key={item.topic}>
+            {skills.map((item) => (
+              <div key={item.skill}>
                 <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-                  <span className="font-medium text-slate-700">{item.topic}</span>
-                  <span className="font-semibold text-slate-950">{item.progress}%</span>
+                  <span className="font-medium text-slate-700">{item.skill}</span>
+                  <span className="font-semibold text-slate-950">{item.count}</span>
                 </div>
-                <ProgressBar value={item.progress} tone="bg-emerald-500" />
+                <ProgressBar value={Math.min(item.count * 10, 100)} tone="bg-emerald-500" />
               </div>
             ))}
+            {!skills.length ? <p className="text-sm text-slate-500">No learning progress is available from backend data yet.</p> : null}
           </div>
         </Card>
       </div>

@@ -10,22 +10,26 @@ import useAuth from '../hooks/useAuth.js';
 
 export default function LoginForm() {
   const { login } = useAuth();
-  const [form, setForm] = useState({ email: 'demo@mockinterview.dev', password: 'password123' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
 
   const update = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
 
   const submit = (event) => {
     event.preventDefault();
+    const payload = {
+      email: form.email.trim(),
+      password: form.password,
+    };
     const nextErrors = {
-      email: isEmail(form.email) ? '' : 'Enter a valid email address.',
-      password: minLength(form.password, 8) ? '' : 'Password must be at least 8 characters.',
+      email: isEmail(payload.email) ? '' : 'Enter a valid email address.',
+      password: minLength(payload.password, 8) ? '' : 'Password must be at least 8 characters.',
     };
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) {
       return;
     }
-    login.mutate(form);
+    login.mutate(payload);
   };
 
   return (

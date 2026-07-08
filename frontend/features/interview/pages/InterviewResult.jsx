@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import {
   ArrowRight,
   Award,
   BarChart3,
-  Brain,
+  Bot,
   CheckCircle2,
   Download,
-  MessageSquareText,
   RefreshCcw,
   Share2,
   ShieldCheck,
@@ -25,87 +25,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ROUTES } from "../../../shared/constants/routes.js";
-
-const scoreCards = [
-  {
-    label: "Overall Score",
-    value: 86,
-    change: "+9 pts vs last session",
-    icon: Award,
-    color: "from-purple-400 to-cyan-300",
-  },
-  {
-    label: "Communication",
-    value: 91,
-    change: "Clear, structured delivery",
-    icon: MessageSquareText,
-    color: "from-cyan-300 to-blue-400",
-  },
-  {
-    label: "Technical",
-    value: 84,
-    change: "Strong architecture depth",
-    icon: Brain,
-    color: "from-blue-400 to-violet-400",
-  },
-  {
-    label: "Confidence",
-    value: 79,
-    change: "Improving answer pacing",
-    icon: ShieldCheck,
-    color: "from-emerald-300 to-cyan-300",
-  },
-];
-
-const radarData = [
-  { skill: "Clarity", score: 92, benchmark: 82 },
-  { skill: "Depth", score: 84, benchmark: 78 },
-  { skill: "Structure", score: 88, benchmark: 80 },
-  { skill: "Confidence", score: 79, benchmark: 76 },
-  { skill: "Problem Solving", score: 86, benchmark: 81 },
-  { skill: "Examples", score: 82, benchmark: 77 },
-];
-
-const breakdown = [
-  {
-    label: "Answer Structure",
-    score: 90,
-    detail: "Used context, action, result, and tradeoff framing consistently.",
-  },
-  {
-    label: "Technical Accuracy",
-    score: 84,
-    detail: "Explained React performance choices with practical production constraints.",
-  },
-  {
-    label: "Business Impact",
-    score: 81,
-    detail: "Referenced measurable outcomes, but could connect metrics to user value faster.",
-  },
-  {
-    label: "Follow-up Readiness",
-    score: 78,
-    detail: "Good recovery under pressure; needs sharper answers on monitoring strategy.",
-  },
-];
-
-const strengths = [
-  "Structured answers with a clear beginning, decision path, and measurable result.",
-  "Strong frontend architecture vocabulary across routing, state, rendering, and data flow.",
-  "Connected technical decisions to performance and user experience outcomes.",
-];
-
-const weaknesses = [
-  "Some answers ran long before reaching the final business impact.",
-  "Monitoring and regression prevention examples need more specificity.",
-  "Confidence dipped slightly during follow-up questions about edge cases.",
-];
-
-const recommendations = [
-  "Practice closing each answer with one metric and one user-facing impact statement.",
-  "Prepare two concise examples covering observability, alerting, and post-release validation.",
-  "Use a 20-second pause before hard system design prompts to frame scope and constraints.",
-];
+import ErrorMessage from "../../../shared/components/common/ErrorMessage.jsx";
+import Loader from "../../../shared/components/common/Loader.jsx";
+import { useApiQuery } from "../../../shared/hooks/useApi.js";
+import { interviewService } from "../services/interviewService.js";
+import useInterviewStore from "../store/interviewStore.js";
 
 const container = {
   hidden: { opacity: 0 },
@@ -166,6 +90,105 @@ function SectionCard({ icon: Icon, title, children }) {
 }
 
 export default function InterviewResult() {
+  const [notice, setNotice] = useState("");
+  const activeInterview = useInterviewStore((state) => state.activeInterview);
+  const { data: report, error, isError, isLoading } = useApiQuery(
+    ["interview-result", activeInterview?.id],
+    () => interviewService.getSessionReport(activeInterview?.id),
+    { enabled: Boolean(activeInterview?.id) },
+  );
+
+  if (!activeInterview?.id) {
+    return <ErrorMessage message="No active interview is available for reporting." />;
+  }
+
+  if (isLoading) {
+    return <Loader label="Loading interview report" />;
+  }
+
+  if (isError) {
+    return <ErrorMessage message={error.message} />;
+  }
+
+  const summary = report?.summary || {};
+  const performance = report?.performance || {};
+  const skillBreakdown = report?.skill_breakdown || [];
+  const recommendations = report?.recommendations || [];
+  const overallScore = summary.average_score || performance.average_score || 0;
+  const scoreCards = [
+    {
+      label: "Overall Score",
+      value: overallScore,
+      change: `${summary.answered_count || 0}/${summary.question_count || 0} answered`,
+      icon: Award,
+      color: "from-purple-400 to-cyan-300",
+    },
+    {
+      label: "Completion Rate",
+      value: summary.completion_rate || 0,
+      change: report?.status || "Not set",
+      icon: ShieldCheck,
+      color: "from-emerald-300 to-cyan-300",
+    },
+  ];
+  const radarData = skillBreakdown.map((item) => ({
+    skill: item.skill,
+    score: item.average_score,
+    benchmark: 70,
+  }));
+  const breakdown = skillBreakdown.map((item) => ({
+    label: item.skill,
+    score: item.average_score,
+    detail: `${item.attempts} evaluated answer${item.attempts === 1 ? "" : "s"}`,
+  }));
+  const strengths = [];
+  const weaknesses = [];
+
+  const reportText = [
+    "Prepify Interview Result",
+    `Overall Score: ${overallScore}/100`,
+    `Completion Rate: ${summary.completion_rate || 0}%`,
+    "",
+    "Recommendations:",
+    ...recommendations.map((recommendation) => `- ${recommendation}`),
+  ].join("\n");
+
+  const downloadReport = () => {
+    const blob = new Blob([reportText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "prepify-interview-report.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice("Interview report downloaded.");
+  };
+
+  const shareResults = async () => {
+    const shareData = {
+      title: "Prepify Interview Result",
+      text: `I scored ${overallScore}/100 on my Prepify interview.`,
+    };
+
+    if (navigator.share) {
+      try {
+        await Promise.race([
+          navigator.share(shareData),
+          new Promise((_, reject) => {
+            window.setTimeout(() => reject(new Error("Share timed out.")), 1500);
+          }),
+        ]);
+        setNotice("Share sheet opened.");
+        return;
+      } catch {
+        // Fall back to clipboard below when Web Share is unavailable, canceled, or stalls.
+      }
+    }
+
+    await navigator.clipboard.writeText(`${shareData.text}\n${window.location.href}`);
+    setNotice("Result link copied to clipboard.");
+  };
+
   return (
     <div className="min-h-screen bg-[#070A14] text-white">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -188,14 +211,14 @@ export default function InterviewResult() {
             </div>
             <h1 className="text-3xl font-semibold text-white sm:text-4xl">Interview Result</h1>
             <p className="mt-2 max-w-2xl text-slate-400">
-              Senior Frontend Engineer practice session scored across communication,
-              technical depth, confidence, and readiness signals.
+              Backend session report for {report?.role || activeInterview.role}.
             </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
+              onClick={downloadReport}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-300/30 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
             >
               <Download className="h-4 w-4" />
@@ -203,6 +226,9 @@ export default function InterviewResult() {
             </button>
             <button
               type="button"
+              onClick={() => {
+                shareResults().catch(() => setNotice("Unable to share results from this browser."));
+              }}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
             >
               <Share2 className="h-4 w-4" />
@@ -210,6 +236,15 @@ export default function InterviewResult() {
             </button>
           </div>
         </motion.header>
+
+        {notice ? (
+          <motion.p
+            variants={item}
+            className="rounded-lg border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100"
+          >
+            {notice}
+          </motion.p>
+        ) : null}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {scoreCards.map((card, index) => (
@@ -315,10 +350,9 @@ export default function InterviewResult() {
                 Interview Summary
               </div>
               <p className="max-w-4xl text-sm leading-7 text-slate-300 sm:text-base">
-                You delivered a strong senior-level interview with clear frontend architecture
-                judgment, practical performance examples, and confident communication. The next
-                improvement area is tightening follow-up responses so every answer lands faster
-                with a metric, validation method, and user impact.
+                {recommendations.length
+                  ? recommendations.join(" ")
+                  : "Evaluate submitted answers to unlock backend recommendations for this interview."}
               </p>
             </div>
 
