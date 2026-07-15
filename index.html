@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VIPER-VIPER-GAME</title>
+
+
+</head>
+<body>
+
+<div class="cabinet">
+  <div class="screw tl"></div>
+  <div class="screw tr"></div>
+  <div class="screw bl"></div>
+  <div class="screw br"></div>
+
+  <div class="marquee">
+    <h1>VIPER-VIPER</h1>
+    <p>A Simple Game </p>
+  </div>
+
+  <div class="screen-frame">
+    <div id="stage">
+      <canvas id="board"></canvas>
+      <div class="hud">
+        <div>
+          <span class="lbl">SCORE</span>
+          <span id="score">000</span>
+        </div>
+        <div style="text-align:right;">
+          <span class="lbl">BEST</span>
+          <span id="best">000</span>
+        </div>
+      </div>
+
+      <div class="overlay show" id="startOverlay">
+        <h2>VIPER-VIPER</h2>
+        <div class="sub">Guide the signal through the grid.<br>Eat to grow. Don't cross yourself<br>or the wall.</div>
+        <button class="btn" id="startBtn">Start!!</button>
+        <div class="hint">Arrows / WASD to steer &middot; Space to pause</div>
+      </div>
+
+      <div class="overlay" id="pauseOverlay">
+        <h2>Paused</h2>
+        <button class="btn" id="resumeBtn">Resume</button>
+      </div>
+
+      <div class="overlay" id="overOverlay">
+        <h2 id="overTitle">Signal Lost</h2>
+        <div class="sub" id="overSub">Final score: 0</div>
+        <button class="btn" id="retryBtn">Play Again</button>
+      </div>
+
+      <div class="scanlines"></div>
+      <div class="vignette"></div>
+    </div>
+  </div>
+
+  <div class="footer-panel">
+    <div class="power"><span class="dot"></span>POWER</div>
+    <div class="hiscore">HIGH SCORE&nbsp;<b id="hiscoreFoot">000</b></div>
+  </div>
+
+  <div class="dpad" id="dpad">
+    <button class="up">&#9650;</button>
+    <button class="left">&#9664;</button>
+    <button class="down">&#9660;</button>
+    <button class="right">&#9654;</button>
+  </div>
+
+  <div class="hint" style="margin-top:14px;">&#9654; Swipe on screen also works on mobile</div>
+</div>
+
+</body>
+</html>
