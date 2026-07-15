@@ -111,7 +111,6 @@
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // subtle grid
     ctx.strokeStyle = 'rgba(255,180,0,0.05)';
     ctx.lineWidth = 1;
     for(let i=1;i<GRID;i++){
@@ -119,7 +118,7 @@
       ctx.beginPath(); ctx.moveTo(0,i*cell); ctx.lineTo(canvas.width,i*cell); ctx.stroke();
     }
 
-    // food
+ 
     const fx = (food.x+0.5)*cell, fy = (food.y+0.5)*cell;
     const r = cell*0.32;
     const grad = ctx.createRadialGradient(fx,fy,0,fx,fy,r*2.2);
@@ -130,7 +129,7 @@
     ctx.fillStyle = '#ff4d2e';
     ctx.beginPath(); ctx.arc(fx,fy,r,0,Math.PI*2); ctx.fill();
 
-    // snake
+  
     snake.forEach((s,i)=>{
       const x = s.x*cell, y = s.y*cell;
       const t = i===0 ? 1 : Math.max(0.35, 1 - i/snake.length*0.8);
@@ -143,7 +142,6 @@
     });
     ctx.shadowBlur = 0;
 
-    // particles
     particles.forEach(p=>{
       ctx.fillStyle = `rgba(255,180,0,${p.life})`;
       ctx.beginPath(); ctx.arc(p.x,p.y,3*devicePixelRatio,0,Math.PI*2); ctx.fill();
@@ -214,14 +212,13 @@
     }
   });
 
-  // D-pad
   const dpad = document.getElementById('dpad');
   dpad.querySelector('.up').addEventListener('click', ()=>setDirection(0,-1));
   dpad.querySelector('.down').addEventListener('click', ()=>setDirection(0,1));
   dpad.querySelector('.left').addEventListener('click', ()=>setDirection(-1,0));
   dpad.querySelector('.right').addEventListener('click', ()=>setDirection(1,0));
 
-  // Swipe controls
+ 
   let touchStart = null;
   const stage = document.getElementById('stage');
   stage.addEventListener('touchstart', (e)=>{
