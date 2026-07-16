@@ -29,6 +29,7 @@ Rapid direction changes are queued instantly, so tight escapes always register.
 #### PLAYS ANYWHERE
  Keyboard, on-screen D-pad, or swipe gestures  desktop and mobile alike.
 
+## Now you may question why there is a contributor ?! its just my other account ( i accidently pushed it there and now i cant remove it !!)
 
 ### BYE !!
 
