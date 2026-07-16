@@ -2,10 +2,273 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>VIPER-VIPER-GAME</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIPER-VIPER // Cabinet Snake</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
+  :root{
+    --walnut-1:#2a1c12;
+    --walnut-2:#1a1109;
+    --brass:#c9a227;
+    --brass-dim:#7a641c;
+    --amber:#ffb400;
+    --amber-dim:#7a4a00;
+    --amber-glow:#ffcf5c;
+    --screen-bg:#120d05;
+    --danger:#ff4d2e;
+  }
 
+  *{ box-sizing:border-box; }
+
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background: radial-gradient(ellipse at center, #3a281a 0%, #140d08 75%);
+    font-family:'VT323', monospace;
+    display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color: transparent;
+    padding:24px 0;
+  }
+
+  .cabinet{
+    position:relative;
+    width:min(94vw, 620px);
+    padding:24px 24px 30px;
+    background:
+      linear-gradient(155deg, #3c2a1a 0%, var(--walnut-1) 35%, var(--walnut-2) 100%);
+    border-radius:18px;
+    box-shadow:
+      0 0 0 2px #0a0603,
+      0 25px 60px -15px rgba(0,0,0,0.8),
+      inset 0 2px 3px rgba(255,255,255,0.06),
+      inset 0 -6px 14px rgba(0,0,0,0.5);
+  }
+
+  .cabinet::before{
+    content:"";
+    position:absolute; inset:6px;
+    border-radius:14px;
+    border:1px solid rgba(201,162,39,0.15);
+    pointer-events:none;
+  }
+
+  .screw{
+    position:absolute;
+    width:11px; height:11px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #e8c15a, var(--brass-dim) 70%, #4a3a0f);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.6), inset 0 0 2px rgba(0,0,0,0.5);
+  }
+  .screw::after{
+    content:"";
+    position:absolute; top:50%; left:15%;
+    width:70%; height:1.5px;
+    background:rgba(0,0,0,0.55);
+    transform: translateY(-50%) rotate(35deg);
+  }
+  .screw.tl{ top:12px; left:12px; }
+  .screw.tr{ top:12px; right:12px; }
+  .screw.bl{ bottom:14px; left:12px; }
+  .screw.br{ bottom:14px; right:12px; }
+
+  .marquee{
+    text-align:center;
+    margin-bottom:14px;
+    position:relative;
+  }
+  .marquee h1{
+    font-family:'Press Start 2P', monospace;
+    font-size:clamp(18px, 5.5vw, 28px);
+    color:var(--amber);
+    letter-spacing:2px;
+    margin:0;
+    text-shadow:
+      0 0 6px rgba(255,180,0,0.8),
+      0 0 18px rgba(255,180,0,0.4);
+  }
+  .marquee p{
+    font-size:14px;
+    letter-spacing:4px;
+    color:var(--brass);
+    margin:6px 0 0;
+    opacity:0.75;
+    text-transform:uppercase;
+  }
+
+  .screen-frame{
+    position:relative;
+    background:#000;
+    border-radius:10px;
+    padding:22px 20px;
+    box-shadow:
+      inset 0 0 0 3px #050302,
+      inset 0 0 30px rgba(0,0,0,0.9),
+      0 0 0 6px #0e0805,
+      0 0 0 7px rgba(201,162,39,0.25);
+  }
+
+  #stage{
+    position:relative;
+    background: radial-gradient(ellipse at 50% 30%, #1c1305 0%, var(--screen-bg) 78%);
+    border-radius:6px;
+    overflow:hidden;
+    padding:22px 22px 26px;
+    color:var(--amber-glow);
+  }
+
+  .scanlines{
+    position:absolute; inset:0;
+    pointer-events:none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.22) 3px,
+      rgba(0,0,0,0.22) 3px
+    );
+    mix-blend-mode:multiply;
+    animation: flicker 6s infinite;
+  }
+  .vignette{
+    position:absolute; inset:0;
+    pointer-events:none;
+    box-shadow: inset 0 0 70px 20px rgba(0,0,0,0.85);
+    border-radius:6px;
+  }
+  @keyframes flicker{
+    0%,100%{ opacity:0.95; }
+    50%{ opacity:1; }
+    52%{ opacity:0.85; }
+    53%{ opacity:0.97; }
+  }
+
+  .content{
+    position:relative;
+    z-index:2;
+  }
+
+  .tagline{
+    text-align:center;
+    font-family:'Press Start 2P', monospace;
+    font-size:12px;
+    color:var(--amber);
+    letter-spacing:1px;
+    line-height:1.9;
+    margin-bottom:20px;
+    text-shadow:0 0 6px rgba(255,180,0,0.6);
+  }
+
+  .blurb{
+    font-size:19px;
+    line-height:1.6;
+    color:var(--amber-glow);
+    opacity:0.92;
+    text-align:center;
+    max-width:480px;
+    margin:0 auto 22px;
+  }
+
+  .section-title{
+    font-family:'Press Start 2P', monospace;
+    font-size:11px;
+    color:var(--brass);
+    letter-spacing:2px;
+    margin:22px 0 12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .section-title::before, .section-title::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:rgba(201,162,39,0.3);
+  }
+
+  .feature-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:12px;
+  }
+  @media (max-width:520px){
+    .feature-grid{ grid-template-columns:1fr; }
+  }
+  .feature{
+    background:rgba(255,180,0,0.05);
+    border:1px solid rgba(201,162,39,0.2);
+    border-radius:8px;
+    padding:12px 14px;
+    font-size:17px;
+    color:var(--amber-glow);
+    line-height:1.4;
+  }
+  .feature b{
+    display:block;
+    font-family:'Press Start 2P', monospace;
+    font-size:10px;
+    color:var(--amber);
+    margin-bottom:6px;
+    letter-spacing:0.5px;
+  }
+
+  .controls-list{
+    list-style:none;
+    padding:0; margin:0;
+    font-size:18px;
+    color:var(--amber-glow);
+  }
+  .controls-list li{
+    display:flex;
+    justify-content:space-between;
+    padding:8px 4px;
+    border-bottom:1px dashed rgba(201,162,39,0.2);
+  }
+  .controls-list li span:last-child{
+    color:var(--amber);
+  }
+
+  .play-wrap{
+    text-align:center;
+    margin-top:26px;
+  }
+
+  .btn{
+    font-family:'Press Start 2P', monospace;
+    font-size:13px;
+    color:#1a1109;
+    background:linear-gradient(180deg, var(--amber-glow), var(--amber));
+    border:none;
+    padding:16px 30px;
+    border-radius:8px;
+    cursor:pointer;
+    box-shadow:0 5px 0 var(--amber-dim), 0 8px 16px rgba(0,0,0,0.5);
+    letter-spacing:1px;
+    transition: transform 0.08s ease;
+    text-decoration:none;
+    display:inline-block;
+  }
+  .btn:active{ transform: translateY(4px); box-shadow:0 1px 0 var(--amber-dim); }
+
+  .coin-hint{
+    margin-top:12px;
+    font-size:14px;
+    color:var(--brass-dim);
+    letter-spacing:1px;
+  }
+
+  .power{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-size:14px; color:var(--brass); letter-spacing:2px;
+    margin-top:18px;
+  }
+  .power .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--amber);
+    box-shadow:0 0 6px var(--amber), 0 0 2px var(--amber);
+    animation:pulse 2.2s infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+</style>
 </head>
 <body>
 
@@ -17,59 +280,61 @@
 
   <div class="marquee">
     <h1>VIPER-VIPER</h1>
-    <p>A Simple Game </p>
+    
   </div>
 
   <div class="screen-frame">
     <div id="stage">
-      <canvas id="board"></canvas>
-      <div class="hud">
-        <div>
-          <span class="lbl">SCORE</span>
-          <span id="score">000</span>
+      <div class="content">
+
+        <div class="tagline">A SIGNAL. A GRID.<br>NO ROOM FOR MISTAKES.</div>
+
+        <div class="blurb">
+          VIPER-VIPER is a classic snake game that i made to learn coding games . Guide the signal across
+          a 20&times;20 grid, consume data nodes to grow longer, and survive
+          for as long as you can &mdash; every bite makes the run faster
+          and less forgiving.
         </div>
-        <div style="text-align:right;">
-          <span class="lbl">BEST</span>
-          <span id="best">000</span>
+
+        <div class="section-title">FEATURES</div>
+        <div class="feature-grid">
+          <div class="feature">
+            <b>LIVE SCORING</b>
+            Real-time score and a running best-of-session high score, always in view.
+          </div>
+          <div class="feature">
+            <b>RISING SPEED</b>
+            The signal accelerates with every node eaten, so the challenge never stalls.
+          </div>
+          <div class="feature">
+            <b>RESPONSIVE CONTROLS</b>
+            Rapid direction changes are queued instantly, so tight escapes always register.
+          </div>
+          <div class="feature">
+            <b>PLAYS ANYWHERE</b>
+            Keyboard, on-screen D-pad, or swipe gestures &mdash; desktop and mobile alike.
+          </div>
         </div>
-      </div>
 
-      <div class="overlay show" id="startOverlay">
-        <h2>VIPER-VIPER</h2>
-        <div class="sub">Guide the signal through the grid.<br>Eat to grow. Don't cross yourself<br>or the wall.</div>
-        <button class="btn" id="startBtn">Start!!</button>
-        <div class="hint">Arrows / WASD to steer &middot; Space to pause</div>
-      </div>
+        <div class="section-title">CONTROLS</div>
+        <ul class="controls-list">
+          <li><span>Steer</span><span>Arrow Keys / WASD</span></li>
+          <li><span>Pause / Resume</span><span>Space</span></li>
+          <li><span>On mobile</span><span>D-pad or Swipe</span></li>
+        </ul>
 
-      <div class="overlay" id="pauseOverlay">
-        <h2>Paused</h2>
-        <button class="btn" id="resumeBtn">Resume</button>
-      </div>
+        <div class="play-wrap">
+          <a class="btn" href="game.html">START THE GAME !! &#9654;</a>
+          <div class="coin-hint">Click to start the game </div>
+        </div>
 
-      <div class="overlay" id="overOverlay">
-        <h2 id="overTitle">Signal Lost</h2>
-        <div class="sub" id="overSub">Final score: 0</div>
-        <button class="btn" id="retryBtn">Play Again</button>
-      </div>
+        <div class="power"><span class="dot"></span>POWER ONLINE</div>
 
+      </div>
       <div class="scanlines"></div>
       <div class="vignette"></div>
     </div>
   </div>
-
-  <div class="footer-panel">
-    <div class="power"><span class="dot"></span>NICE GAME RIGHT ?!!?</div>
-    <div class="hiscore">HIGH SCORE&nbsp;<b id="hiscoreFoot">000</b></div>
-  </div>
-
-  <div class="dpad" id="dpad">
-    <button class="up">&#9650;</button>
-    <button class="left">&#9664;</button>
-    <button class="down">&#9660;</button>
-    <button class="right">&#9654;</button>
-  </div>
-
-  <div class="hint" style="margin-top:14px;">&#9654; Swipe on screen also works on mobile</div>
 </div>
 
 </body>
